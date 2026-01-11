@@ -1,0 +1,10 @@
+runs/
+
+*.pt
+*.pth
+*.onnx
+
+all-1/
+
+__pycache__/
+*.py[cod]
