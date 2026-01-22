@@ -7,8 +7,9 @@ YOLO_model for V_marker detection
 git clone https://github.com/NARAE-INHA-UNIV/V_marker_detection.git
 cd V_marker_detection
 
-python -m venv .venv
-source .venv/bin/activate
+conda create -n Inair python=3.10 -y
+conda activate Inair
+
 pip install ultralytics opencv-python
 pip install roboflow
 ```
