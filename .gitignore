@@ -8,3 +8,5 @@ all-1/
 
 __pycache__/
 *.py[cod]
+
+*.mp4
