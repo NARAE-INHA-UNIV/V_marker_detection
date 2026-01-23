@@ -33,3 +33,8 @@ cd ./runs/detect
 ```
 해당 디렉토리에 nano model과 small model의 weight파일이 존재합니다.
 두 weight파일의 추론시간을 비교해 주세요 
+
+
+
+### V_marker Google Drive
+https://drive.google.com/drive/folders/16EDUsnlFm6T7sW9rF5j7IPAtaa4Y80qB?usp=share_link
