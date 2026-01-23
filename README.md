@@ -7,6 +7,7 @@ YOLO_model for V_marker detection
 git clone https://github.com/NARAE-INHA-UNIV/V_marker_detection.git
 cd V_marker_detection
 
+# colab에서 실행 시 아래 두 줄은 생략!
 conda create -n Inair python=3.10 -y
 conda activate Inair
 
