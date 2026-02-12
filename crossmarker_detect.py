@@ -35,9 +35,16 @@ def detect_crossmarker_regions(
     v_max=255,
     min_area=500,
     blur_ksize=5,
+    min_rectangularity=0.4,
+    min_aspect_ratio=0.45,
+    min_solidity=0.75,
+    quad_only=True,
+    approx_epsilon_ratio=0.02,
 ):
     """
-    HSV Hue 기반으로 적색 영역을 검출하고, 유효한 영역만 반환.
+    HSV Hue 기반으로 적색 영역을 검출하고, cv2.minAreaRect로 회전 외접 사각형을 계산한 뒤
+    직사각형도·종횡비·견고도로 필터링해 빨간 사각형 마커만 반환. 자글자글하거나 길쭉한 노이즈 제거.
+    quad_only=True이면 approxPolyDP로 4꼭짓점(사각형) 형태만 통과시킴.
     """
     if blur_ksize >= 3:
         k = blur_ksize if blur_ksize % 2 else blur_ksize + 1
@@ -72,6 +79,41 @@ def detect_crossmarker_regions(
         area = cv2.contourArea(cnt)
         if area < min_area:
             continue
+
+        # 회전 외접 사각형 계산 (minAreaRect)
+        min_rect = cv2.minAreaRect(cnt)
+        (rx, ry), (rw, rh), angle = min_rect
+        rect_area = rw * rh
+        if rect_area <= 0:
+            continue
+        rectangularity = area / rect_area  # 1에 가까울수록 직사각형에 가까움
+        if rectangularity < min_rectangularity:
+            continue
+
+        # 노이즈 필터: 빨간 사각형에서 많이 벗어난 형태 제거
+        # 종횡비 — 너무 길쭉한 것(선·자글자글한 잡음) 제외. 정사각형에 가까울수록 1
+        side_min, side_max = min(rw, rh), max(rw, rh)
+        aspect_ratio = side_min / side_max if side_max > 0 else 0
+        if aspect_ratio < min_aspect_ratio:
+            continue
+
+        # 견고도(solidity) — 컨투어 면적/볼록껍질 면적. 자글자글한 형태는 값이 낮음
+        hull = cv2.convexHull(cnt)
+        hull_area = cv2.contourArea(hull)
+        solidity = (area / hull_area) if hull_area > 0 else 0
+        if solidity < min_solidity:
+            continue
+
+        # 사각형(4꼭짓점) 형태만 허용 — 다각형 근사 후 꼭짓점 수로 노이즈 제거
+        if quad_only:
+            peri = cv2.arcLength(cnt, True)
+            epsilon = approx_epsilon_ratio * peri
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            if len(approx) != 4:
+                continue
+
+        box_points = np.asarray(cv2.boxPoints(min_rect), dtype=np.int32)
+
         M = cv2.moments(cnt)
         if M["m00"] <= 0:
             continue
@@ -83,6 +125,12 @@ def detect_crossmarker_regions(
             "center": (cx, cy),
             "area": area,
             "bbox": (x, y, w, h),
+            "min_rect": min_rect,
+            "min_rect_box": box_points,
+            "rect_area": rect_area,
+            "rectangularity": rectangularity,
+            "aspect_ratio": aspect_ratio,
+            "solidity": solidity,
         })
 
     # 면적 기준 정렬 (큰 것부터)
@@ -90,8 +138,8 @@ def detect_crossmarker_regions(
     return red_mask, regions
 
 
-def draw_crossmarkers(frame, regions, draw_contour=True, draw_label=True):
-    """검출된 적색(크로스 마커) 영역 그리기 및 라벨링."""
+def draw_crossmarkers(frame, regions, draw_contour=True, draw_label=True, draw_min_rect=True):
+    """검출된 적색(크로스 마커) 영역 그리기 및 라벨링. 회전 외접 사각형(minAreaRect) 옵션."""
     out = frame.copy()
     for idx, r in enumerate(regions):
         cx, cy = r["center"]
@@ -103,9 +151,15 @@ def draw_crossmarkers(frame, regions, draw_contour=True, draw_label=True):
             cv2.drawContours(out, [cnt], -1, (0, 255, 0), 2)
             cv2.circle(out, (cx, cy), 4, (0, 0, 255), -1)
 
+        if draw_min_rect and "min_rect_box" in r:
+            box = r["min_rect_box"]
+            if len(box) >= 4:
+                cv2.drawContours(out, [box], 0, (255, 165, 0), 2)  # 주황색으로 회전 외접 사각형
+
         if draw_label:
             label = f"CrossMarker {idx + 1}"
-            info = f"A:{int(area)}"
+            rect_str = f"R:{r.get('rectangularity', 0):.2f}" if "rectangularity" in r else ""
+            info = f"A:{int(area)}" + (f" {rect_str}" if rect_str else "")
             cv2.rectangle(out, (x, y - 22), (x + 120, y), (0, 255, 0), -1)
             cv2.putText(
                 out, label, (x, y - 12),
@@ -130,9 +184,13 @@ def main():
         return
 
     print("HSV(Hue) 기반 크로스 마커 검출 (적색: Hue 170~180, 0~10)")
-    print("  'q' - 종료   's' - 스크린샷   '+'/'-' - 최소 면적 조절")
+    print("  'q' - 종료   's' - 스크린샷   '+'/'-' - 최소 면적   'r'/'R' - 직사각형도   '4' - 사각형만 필터 토글")
 
     min_area = 500
+    min_rectangularity = 0.4
+    min_aspect_ratio = 0.45   # 정사각형에서 벗어난 길쭉한 것 노이즈 제거
+    min_solidity = 0.75       # 자글자글한 형태 노이즈 제거
+    quad_only = True          # True면 4꼭짓점(사각형) 형태만 표시
     s_min, s_max = 100, 255
     v_min, v_max = 50, 255
     hue_low1, hue_high1 = 0, 10
@@ -155,12 +213,16 @@ def main():
             v_min=v_min,
             v_max=v_max,
             min_area=min_area,
+            min_rectangularity=min_rectangularity,
+            min_aspect_ratio=min_aspect_ratio,
+            min_solidity=min_solidity,
+            quad_only=quad_only,
         )
         output = draw_crossmarkers(frame, regions)
 
         status = (
-            f"Hue: 0~10, 170~180 | Red: {len(regions)} | "
-            f"MinArea: {min_area} | [m]ask: {show_mask}"
+            f"Red: {len(regions)} | Area≥{min_area} Rect≥{min_rectangularity:.2f} "
+            f"Aspect≥{min_aspect_ratio:.2f} Solid≥{min_solidity:.2f} | QuadOnly:{quad_only} [4] | [m]ask: {show_mask}"
         )
         cv2.putText(
             output, status, (10, 30),
@@ -185,8 +247,14 @@ def main():
             min_area = min(5000, min_area + 100)
         elif key == ord("-"):
             min_area = max(100, min_area - 100)
+        elif key == ord("r"):
+            min_rectangularity = max(0.1, min_rectangularity - 0.05)
+        elif key == ord("R"):
+            min_rectangularity = min(0.95, min_rectangularity + 0.05)
         elif key == ord("m"):
             show_mask = not show_mask
+        elif key == ord("4"):
+            quad_only = not quad_only
 
     cap.release()
     cv2.destroyAllWindows()
