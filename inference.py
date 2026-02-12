@@ -4,8 +4,6 @@ import os
 import json
 from ultralytics import YOLO
 
-
-
 def measure_performance(model_name, model_path, video_path):
 
     model = YOLO(model_path, task="detect")
