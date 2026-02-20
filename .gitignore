@@ -1,9 +1,5 @@
-runs/
 
-*.pt
-*.pth
-*.onnx
-*.engine
+
 all-1/
 
 __pycache__/
