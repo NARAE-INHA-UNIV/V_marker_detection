@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  vmarker-yolo:
+    image: ultralytics/ultralytics:latest-jetson-jetpack6
+    container_name: vmarker
+    runtime: nvidia 
+    
+    network_mode: host 
+    ipc: host # PyTorch에서 DataLoader 사용 시 메모리 부족(SHMEM) 에러 원천 차단
+    
+    environment:
+      - DISPLAY=${DISPLAY} # OpenCV imshow 등 GUI 창을 띄우기 위한 설정
+      - QT_X11_NO_MITSHM=1
+      
+    volumes:
+      - .:/workspace 
+      - /home/inair/Workspace/v_team/V_marker_detection:/workspace
+      
+      # GUI 출력을 위한 시스템 소켓 공유
+      - /tmp/.X11-unix:/tmp/.X11-unix 
+      
+      # (최신 jtop은 보통 jtop.sock을 씁니다. 만약 안 되면 아래 주석을 푸세요)
+      - /run/jtop.sock:/run/jtop.sock
+      # - /run/jtop.stats.sock:/run/jtop.stats.sock 
+      
+    working_dir: /workspace
+    
+    # 터미널 접속을 유지하고 bash 쉘로 대기
+    stdin_open: true 
+    tty: true 
+    command: /bin/bash
