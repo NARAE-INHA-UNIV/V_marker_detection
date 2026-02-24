@@ -3,7 +3,7 @@ version: '3.8'
 services:
   vmarker-yolo:
     image: ultralytics/ultralytics:latest-jetson-jetpack6
-    container_name: vmarker
+    container_name: vmarker_02_24
     runtime: nvidia 
     
     network_mode: host 
