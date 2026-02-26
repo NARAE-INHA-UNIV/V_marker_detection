@@ -1,8 +1,6 @@
-![alt text](image.png)
-![alt text](image-1.png)
-![alt text](image-2.png)
-![alt text](image-3.png)
-![alt text](image-4.png)
-![alt text](image-5.png)
-
-
+![alt text](benchmark/benchmark_results/fps_breakdown.png)
+![alt text](benchmark/benchmark_results/latency_breakdown.png)
+![alt text](benchmark/benchmark_results/timeline_cpu.png)
+![alt text](benchmark/benchmark_results/timeline_gpu.png)
+![alt text](benchmark/benchmark_results/timeline_power.png)
+![alt text](benchmark/benchmark_results/timeline_ram.png)
