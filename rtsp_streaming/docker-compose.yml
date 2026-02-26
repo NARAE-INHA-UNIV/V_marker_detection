@@ -1,32 +1,29 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  vmarker-yolo:
-    image: ultralytics/ultralytics:latest-jetson-jetpack6
-    container_name: vmarker_02_24
-    runtime: nvidia 
-    
-    network_mode: host 
-    ipc: host # PyTorch에서 DataLoader 사용 시 메모리 부족(SHMEM) 에러 원천 차단
-    
-    environment:
-      - DISPLAY=${DISPLAY} # OpenCV imshow 등 GUI 창을 띄우기 위한 설정
-      - QT_X11_NO_MITSHM=1
-      
-    volumes:
-      - .:/workspace 
-      - /home/inair/Workspace/v_team/V_marker_detection:/workspace
-      
-      # GUI 출력을 위한 시스템 소켓 공유
-      - /tmp/.X11-unix:/tmp/.X11-unix 
-      
-      # (최신 jtop은 보통 jtop.sock을 씁니다. 만약 안 되면 아래 주석을 푸세요)
-      - /run/jtop.sock:/run/jtop.sock
-      # - /run/jtop.stats.sock:/run/jtop.stats.sock 
-      
-    working_dir: /workspace
-    
-    # 터미널 접속을 유지하고 bash 쉘로 대기
-    stdin_open: true 
-    tty: true 
-    command: /bin/bash
+  # 1. RTSP 서버 (MediaMTX)
+  rtsp-server:
+    image: bluenviron/mediamtx:latest
+    container_name: rtsp-server
+    network_mode: host
+    restart: always
+
+  # 2. GStreamer 송출기 (미리 빌드된 이미지 사용)
+  gst-publisher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gst-publisher
+    network_mode: host
+    devices:
+      - "/dev/video0:/dev/video0"
+    depends_on:
+      - rtsp-server
+    # Orin Nano에 최적화된 x264enc 파이프라인
+    command: >
+      v4l2src device=/dev/video0 ! 
+      video/x-raw,width=640,height=480,framerate=30/1 ! 
+      videoconvert ! 
+      x264enc tune=zerolatency bitrate=1500 speed-preset=ultrafast ! 
+      rtph264pay config-interval=1 pt=96 ! 
+      rtspclientsink location=rtsp://localhost:8554/live
