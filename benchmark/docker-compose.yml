@@ -1,5 +1,5 @@
 version: '3.8'
-
+# 민규님 화이팅
 services:
   vmarker-yolo:
     image: ultralytics/ultralytics:latest-jetson-jetpack6
